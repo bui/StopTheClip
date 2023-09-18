@@ -4,6 +4,7 @@ using Dalamud.Game.Command;
 using Dalamud.Game.ClientState;
 using Dalamud.Game.ClientState.Party;
 using Dalamud.Game.ClientState.Objects.SubKinds;
+using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Hooking;
 using Dalamud.Utility.Signatures;
 using Dalamud.IoC;
@@ -16,17 +17,18 @@ using System.Text.RegularExpressions;
 
 using StopTheClip.Structures;
 
-
 namespace StopTheClip
 {
     public unsafe class StopTheClip : IDalamudPlugin
     {
         [PluginService] public static DalamudPluginInterface? PluginInterface { get; private set; }
+        [PluginService] public static Framework? Framework { get; private set; }
         [PluginService] public static CommandManager? CommandManager { get; private set; }
         [PluginService] public static ClientState? ClientState { get; private set; }
         [PluginService] public static PartyList? PartyList { get; private set; }
         [PluginService] public static SigScanner? SigScanner { get; private set; }
         [PluginService] public static ChatGui? ChatGui { get; private set; }
+        [PluginService] public static Condition? Condition { get; private set; }
 
         public StopTheClip Plugin { get; init; }
         public string Name => "StopTheClip";
@@ -34,9 +36,10 @@ namespace StopTheClip
 
         private TargetSystem* targetSystem = TargetSystem.Instance();
         private ControlSystemCameraManager* csCameraManager = null;
-
         private HookManager hookManager = new HookManager();
+
         private bool isEnabled = false;
+        private bool inCutscene = false;
 
         public StopTheClip()
         {
@@ -47,6 +50,7 @@ namespace StopTheClip
 
             ClientState!.Login += OnLogin;
             ClientState!.Logout += OnLogout;
+            Framework!.Update += Update;
             PluginInterface!.UiBuilder.Draw += DrawUI;
             PluginInterface!.UiBuilder.OpenConfigUi += ToggleUI;
 
@@ -60,6 +64,7 @@ namespace StopTheClip
 
             ClientState!.Login -= OnLogin;
             ClientState!.Logout -= OnLogout;
+            Framework!.Update -= Update;
             PluginInterface!.UiBuilder.Draw -= DrawUI;
             PluginInterface!.UiBuilder.OpenConfigUi -= ToggleUI;
 
@@ -116,8 +121,14 @@ namespace StopTheClip
         public static void PrintEcho(string message) => ChatGui!.Print($"[StopTheClip] {message}");
         public static void PrintError(string message) => ChatGui!.PrintError($"[StopTheClip] {message}");
 
-
-
+        private void Update(Framework framework)
+        {
+            if (isEnabled)
+            {
+                inCutscene = Condition![ConditionFlag.OccupiedInCutSceneEvent] || Condition![ConditionFlag.WatchingCutscene] || Condition![ConditionFlag.WatchingCutscene78];
+            }
+        }
+        
 
         private void ClipManagerSetNearClip()
         {
@@ -144,8 +155,6 @@ namespace StopTheClip
             internal const string g_ControlSystemCameraManager = "48 8D 0D ?? ?? ?? ?? F3 0F 10 4B ??";
             internal const string RunGameTasks = "E8 ?? ?? ?? ?? 48 8B 8B B8 35 00 00";
         }
-
-
 
         private void Initialize()
         {
@@ -286,6 +295,9 @@ namespace StopTheClip
         {
             PlayerCharacter? player = ClientState!.LocalPlayer;
             if (player == null)
+                return;
+
+            if (inCutscene)
                 return;
 
             //----
