@@ -114,6 +114,15 @@ namespace StopTheClip
         }
         private void OnLogout(object? sender, EventArgs e)
         {
+            //----
+            // Sets the lengths of the TargetSystem to 0 as they keep their size
+            // even though the data is reset
+            //----
+            targetSystem->ObjectFilterArray0.Length = 0;
+            targetSystem->ObjectFilterArray1.Length = 0;
+            targetSystem->ObjectFilterArray2.Length = 0;
+            targetSystem->ObjectFilterArray3.Length = 0;
+
             if (isEnabled)
                 ClipManagerResetNearClip();
         }
