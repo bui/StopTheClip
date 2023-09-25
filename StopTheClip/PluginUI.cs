@@ -18,7 +18,7 @@ namespace StopTheClip
             ImGui.SetNextWindowSizeConstraints(new Vector2(190, 120) * ImGuiHelpers.GlobalScale, new Vector2(9999));
 
             
-            if (ImGui.Begin("Configuration", ref isVisible, ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse))
+            if (ImGui.Begin("StopTheClipConfiguration", ref isVisible, ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse))
             {
                 ImGui.BeginChild("Outer", new Vector2(180, 110) * ImGuiHelpers.GlobalScale, true);
 

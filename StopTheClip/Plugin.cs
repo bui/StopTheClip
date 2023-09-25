@@ -16,6 +16,8 @@ using System;
 using System.Text.RegularExpressions;
 
 using StopTheClip.Structures;
+using MemoryManager.Structures;
+using Dalamud.Logging;
 
 namespace StopTheClip
 {
@@ -31,6 +33,8 @@ namespace StopTheClip
         [PluginService] public static Condition? Condition { get; private set; }
 
         public StopTheClip Plugin { get; init; }
+        public static SharedMemoryManager smm = new SharedMemoryManager();
+
         public string Name => "StopTheClip";
         private const string CommandName = "/stoptheclip";
 
@@ -40,9 +44,13 @@ namespace StopTheClip
 
         private bool isEnabled = false;
         private bool inCutscene = false;
+        private bool isXIVRActive = false;
+        private bool origEnabled = false;
 
         public StopTheClip()
         {
+            Plugin = this;
+
             CommandManager!.AddHandler(CommandName, new CommandInfo(OnCommand)
             {
                 HelpMessage = "[enable|disable]"
@@ -61,6 +69,9 @@ namespace StopTheClip
         public void Dispose()
         {
             Stop();
+            smm.SetClose(SharedMemoryPlugins.StopTheClip);
+            smm.Dispose();
+            //smm.OutputStatus();
 
             ClientState!.Login -= OnLogin;
             ClientState!.Logout -= OnLogout;
@@ -132,10 +143,32 @@ namespace StopTheClip
 
         private void Update(Framework framework)
         {
-            if (isEnabled)
+            //----
+            // if xivr is open check to see if its active
+            // if so save the current active value and disable it
+            //----
+            if (smm.CheckOpen(SharedMemoryPlugins.XIVR))
             {
-                inCutscene = Condition![ConditionFlag.OccupiedInCutSceneEvent] || Condition![ConditionFlag.WatchingCutscene] || Condition![ConditionFlag.WatchingCutscene78];
+                bool xivrActive = smm.CheckActive(SharedMemoryPlugins.XIVR);
+                if(isXIVRActive != xivrActive)
+                {
+                    if(xivrActive)
+                    {
+                        origEnabled = isEnabled;
+                        if (isEnabled)
+                            Stop();
+                    }
+                    else
+                    {
+                        isEnabled = origEnabled;
+                        if (isEnabled)
+                            Start();
+                    }
+                }
             }
+
+            if (isEnabled)
+                inCutscene = Condition![ConditionFlag.OccupiedInCutSceneEvent] || Condition![ConditionFlag.WatchingCutscene] || Condition![ConditionFlag.WatchingCutscene78];
         }
         
 
@@ -169,23 +202,30 @@ namespace StopTheClip
         {
             SignatureHelper.Initialise(this);
             hookManager.SetFunctionHandles(this);
+            smm.SetOpen(SharedMemoryPlugins.StopTheClip);
             csCameraManager = (ControlSystemCameraManager*)SigScanner!.GetStaticAddressFromSig(Signatures.g_ControlSystemCameraManager);
         }
 
         public void Start()
         {
             hookManager.EnableFunctionHandles();
+            smm.SetActive(SharedMemoryPlugins.StopTheClip);
             ClipManagerSetNearClip();
             isEnabled = true;
-            PrintEcho("Clipping Enabled");
+            //PrintEcho("Clipping Enabled");
+            //PluginLog.Log($"STC Stop: {isEnabled} {origEnabled}");
+            //smm.OutputStatus();
         }
 
         public void Stop()
         {
-            PrintEcho("Clipping Disabled");
+            //PrintEcho("Clipping Disabled");
             isEnabled = false;
             ClipManagerResetNearClip();
+            smm.SetInactive(SharedMemoryPlugins.StopTheClip);
             hookManager.DisableFunctionHandles();
+            //PluginLog.Log($"STC Stop: {isEnabled} {origEnabled}");
+            //smm.OutputStatus();
         }
 
         public void Toggle()
