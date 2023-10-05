@@ -162,6 +162,7 @@ namespace StopTheClip
                         if (isEnabled)
                             Start();
                     }
+                    isXIVRActive = xivrActive;
                 }
             }
 
