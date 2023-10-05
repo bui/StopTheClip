@@ -1,14 +1,12 @@
 ﻿using Dalamud.Game;
-using Dalamud.Game.Gui;
 using Dalamud.Game.Command;
-using Dalamud.Game.ClientState;
-using Dalamud.Game.ClientState.Party;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Hooking;
 using Dalamud.Utility.Signatures;
 using Dalamud.IoC;
 using Dalamud.Plugin;
+using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
@@ -17,22 +15,23 @@ using System.Text.RegularExpressions;
 
 using StopTheClip.Structures;
 using MemoryManager.Structures;
-using Dalamud.Logging;
+using FFXIVClientStructs.FFXIV.Client.Graphics.Scene;
 
 namespace StopTheClip
 {
-    public unsafe class StopTheClip : IDalamudPlugin
+    public unsafe class Plugin : IDalamudPlugin
     {
-        [PluginService] public static DalamudPluginInterface? PluginInterface { get; private set; }
-        [PluginService] public static Framework? Framework { get; private set; }
-        [PluginService] public static CommandManager? CommandManager { get; private set; }
-        [PluginService] public static ClientState? ClientState { get; private set; }
-        [PluginService] public static PartyList? PartyList { get; private set; }
-        [PluginService] public static SigScanner? SigScanner { get; private set; }
-        [PluginService] public static ChatGui? ChatGui { get; private set; }
-        [PluginService] public static Condition? Condition { get; private set; }
+        [PluginService] public static DalamudPluginInterface? PluginInterface { get; private set; } = null;
+        [PluginService] public static IFramework? iFramework { get; private set; } = null;
+        [PluginService] public static ICommandManager? CommandManager { get; private set; } = null;
+        [PluginService] public static IClientState? ClientState { get; private set; } = null;
+        [PluginService] public static IPartyList? PartyList { get; private set; } = null;
+        [PluginService] public static ISigScanner? SigScanner { get; private set; } = null;
+        [PluginService] public static IChatGui? ChatGui { get; private set; } = null;
+        [PluginService] public static ICondition? Condition { get; private set; } = null;
+        [PluginService] public static IPluginLog? Log { get; private set; } = null;
+        [PluginService] public static IGameInteropProvider Interop { get; private set; } = null;
 
-        public StopTheClip Plugin { get; init; }
         public static SharedMemoryManager smm = new SharedMemoryManager();
 
         public string Name => "StopTheClip";
@@ -46,11 +45,9 @@ namespace StopTheClip
         private bool inCutscene = false;
         private bool isXIVRActive = false;
         private bool origEnabled = false;
-
-        public StopTheClip()
+        
+        public Plugin()
         {
-            Plugin = this;
-
             CommandManager!.AddHandler(CommandName, new CommandInfo(OnCommand)
             {
                 HelpMessage = "[enable|disable]"
@@ -58,7 +55,7 @@ namespace StopTheClip
 
             ClientState!.Login += OnLogin;
             ClientState!.Logout += OnLogout;
-            Framework!.Update += Update;
+            iFramework!.Update += Update;
             PluginInterface!.UiBuilder.Draw += DrawUI;
             PluginInterface!.UiBuilder.OpenConfigUi += ToggleUI;
 
@@ -69,13 +66,14 @@ namespace StopTheClip
         public void Dispose()
         {
             Stop();
+            hookManager.DisposeFunctionHandles();
             smm.SetClose(SharedMemoryPlugins.StopTheClip);
             smm.Dispose();
             //smm.OutputStatus();
 
             ClientState!.Login -= OnLogin;
             ClientState!.Logout -= OnLogout;
-            Framework!.Update -= Update;
+            iFramework!.Update -= Update;
             PluginInterface!.UiBuilder.Draw -= DrawUI;
             PluginInterface!.UiBuilder.OpenConfigUi -= ToggleUI;
 
@@ -117,13 +115,13 @@ namespace StopTheClip
                 Toggle();
         }
 
-        private void OnLogin(object? sender, EventArgs e)
+        private void OnLogin()
         {
             if(isEnabled)
                 ClipManagerSetNearClip();
 
         }
-        private void OnLogout(object? sender, EventArgs e)
+        private void OnLogout()
         {
             //----
             // Sets the lengths of the TargetSystem to 0 as they keep their size
@@ -141,7 +139,7 @@ namespace StopTheClip
         public static void PrintEcho(string message) => ChatGui!.Print($"[StopTheClip] {message}");
         public static void PrintError(string message) => ChatGui!.PrintError($"[StopTheClip] {message}");
 
-        private void Update(Framework framework)
+        private void Update(IFramework framework)
         {
             //----
             // if xivr is open check to see if its active
@@ -200,7 +198,8 @@ namespace StopTheClip
 
         private void Initialize()
         {
-            SignatureHelper.Initialise(this);
+            Interop.InitializeFromAttributes(this);
+
             hookManager.SetFunctionHandles(this);
             smm.SetOpen(SharedMemoryPlugins.StopTheClip);
             csCameraManager = (ControlSystemCameraManager*)SigScanner!.GetStaticAddressFromSig(Signatures.g_ControlSystemCameraManager);
@@ -213,8 +212,8 @@ namespace StopTheClip
             ClipManagerSetNearClip();
             isEnabled = true;
             //PrintEcho("Clipping Enabled");
-            //PluginLog.Log($"STC Stop: {isEnabled} {origEnabled}");
-            //smm.OutputStatus();
+            //Log!.Info($"STC Start: {isEnabled} {origEnabled}");
+            //smm.OutputStatus(this);
         }
 
         public void Stop()
@@ -224,8 +223,8 @@ namespace StopTheClip
             ClipManagerResetNearClip();
             smm.SetInactive(SharedMemoryPlugins.StopTheClip);
             hookManager.DisableFunctionHandles();
-            //PluginLog.Log($"STC Stop: {isEnabled} {origEnabled}");
-            //smm.OutputStatus();
+            //Log!.Info($"STC Start: {isEnabled} {origEnabled}");
+            //smm.OutputStatus(this);
         }
 
         public void Toggle()
@@ -236,12 +235,6 @@ namespace StopTheClip
                 Start();
         }
 
-
-
-
-
-
-
         //----
         // RunGameTasks
         //----
@@ -250,18 +243,21 @@ namespace StopTheClip
         private Hook<RunGameTasksDg>? RunGameTasksHook = null;
 
         [HandleStatus("RunGameTasks")]
-        public void RunGameTasksStatus(bool status)
+        public void RunGameTasksStatus(bool status, bool dispose)
         {
-            if (status == true)
-                RunGameTasksHook?.Enable();
+            if (dispose)
+                RunGameTasksHook?.Dispose();
             else
-                RunGameTasksHook?.Disable();
+                if (status)
+                    RunGameTasksHook?.Enable();
+                else
+                    RunGameTasksHook?.Disable();
         }
 
         public unsafe void RunGameTasksFn(UInt64 a, float* frameTiming)
         {
             if (isEnabled)
-            { 
+            {
                 for (int i = 0; i < 40; i++)
                 {
                     if (i == 18)
@@ -292,41 +288,29 @@ namespace StopTheClip
                 if (model == null)
                     return;
 
-                if (model->CullType == ModelCullTypes.InsideCamera && (byte)character->GameObject.TargetableStatus == 255)
+                if (model->CullType == ModelCullTypes.InsideCamera && ((byte)character->GameObject.TargetableStatus & 2) == 2)
                     model->CullType = ModelCullTypes.Visible;
-
+                
                 DrawDataContainer* drawData = &character->DrawData;
                 if (drawData != null && !drawData->IsWeaponHidden)
                 {
-                    UInt64 mhOffset = (UInt64)(&drawData->MainHand);
-                    if (mhOffset != 0)
-                    {
-                        Structures.Model* mhWeap = *(Structures.Model**)(mhOffset + 0x8);
-                        if (mhWeap != null)
-                            mhWeap->CullType = ModelCullTypes.Visible;
-                    }
+                    Structures.Model* mhWeap = (Structures.Model*)drawData->Weapon(DrawDataContainer.WeaponSlot.MainHand).DrawObject;
+                    if (mhWeap != null)
+                        mhWeap->CullType = ModelCullTypes.Visible;
 
-                    UInt64 ohOffset = (UInt64)(&drawData->OffHand);
-                    if (ohOffset != 0)
-                    {
-                        Structures.Model* ohWeap = *(Structures.Model**)(ohOffset + 0x8);
-                        if (ohWeap != null)
-                            ohWeap->CullType = ModelCullTypes.Visible;
-                    }
+                    Structures.Model* ohWeap = (Structures.Model*)drawData->Weapon(DrawDataContainer.WeaponSlot.OffHand).DrawObject;
+                    if (ohWeap != null)
+                        ohWeap->CullType = ModelCullTypes.Visible;
 
-                    UInt64 fOffset = (UInt64)(&drawData->UnkF0);
-                    if (fOffset != 0)
-                    {
-                        Structures.Model* fWeap = *(Structures.Model**)(fOffset + 0x8);
-                        if (fWeap != null)
-                            fWeap->CullType = ModelCullTypes.Visible;
-                    }
+                    Structures.Model* fWeap = (Structures.Model*)drawData->Weapon(DrawDataContainer.WeaponSlot.Unk).DrawObject;
+                    if (fWeap != null)
+                        fWeap->CullType = ModelCullTypes.Visible;
                 }
 
                 Structures.Model* mount = (Structures.Model*)model->mountedObject;
                 if (mount != null)
                     mount->CullType = ModelCullTypes.Visible;
-
+                
                 Character.OrnamentContainer* oCont = &character->Ornament;
                 if (oCont != null)
                 {

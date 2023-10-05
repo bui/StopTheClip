@@ -1,12 +1,10 @@
-﻿using Dalamud.Logging;
-using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Reflection;
 
 
 namespace StopTheClip.Structures
 {
-    public delegate void HandleStatusDelegate(bool status);
+    public delegate void HandleStatusDelegate(bool status, bool dispose);
 
     [System.AttributeUsage(System.AttributeTargets.Method, AllowMultiple = true, Inherited = false)]
     public sealed class HandleStatus : System.Attribute
@@ -22,7 +20,7 @@ namespace StopTheClip.Structures
     {
         protected Dictionary<string, HandleStatusDelegate> functionList = new Dictionary<string, HandleStatusDelegate>();
 
-        public void SetFunctionHandles(StopTheClip self, bool doDebug = false)
+        public void SetFunctionHandles(Plugin self, bool doDebug = false)
         {
             //----
             // Gets a list of all the methods the given class contains that are public and instanced (non static)
@@ -30,7 +28,7 @@ namespace StopTheClip.Structures
             // Once found, create a delegate and add both the attribute and delegate to a dictionary
             //----
             if (doDebug)
-                PluginLog.Log("HookManager: Finding Functions");
+                Plugin.Log!.Info("HookManager: Finding Functions Start");
             functionList.Clear();
             BindingFlags flags = BindingFlags.Public | BindingFlags.Instance;
             foreach (MethodInfo method in self.GetType().GetMethods(flags))
@@ -41,13 +39,13 @@ namespace StopTheClip.Structures
                     HandleStatusDelegate handle = (HandleStatusDelegate)HandleStatusDelegate.CreateDelegate(typeof(HandleStatusDelegate), self, method);
 
                     if (doDebug)
-                        PluginLog.Log($"HookManager: Found {key}");
+                        Plugin.Log!.Info($"HookManager: Found {key}");
                     if (!functionList.ContainsKey(key))
                         functionList.Add(key, handle);
                 }
             }
             if (doDebug)
-                PluginLog.Log("HookManager: Found Functions");
+                Plugin.Log!.Info("HookManager: Finding Functions End");
         }
 
         public void EnableFunctionHandles(bool doDebug = false)
@@ -56,11 +54,11 @@ namespace StopTheClip.Structures
             // Enable all hooks
             //----
             if(doDebug)
-                PluginLog.Log("HookManager: Enabling All Functions");
+                Plugin.Log!.Info("HookManager: Enabling All Functions");
             foreach (KeyValuePair<string, HandleStatusDelegate> attrib in functionList)
-                attrib.Value(true);
+                attrib.Value(true, false);
             if (doDebug)
-                PluginLog.Log("HookManager: Enabled All Functions");
+                Plugin.Log!.Info("HookManager: Enabled All Functions");
         }
 
         public void DisableFunctionHandles(bool doDebug = false)
@@ -69,11 +67,24 @@ namespace StopTheClip.Structures
             // Disable all hooks
             //----
             if (doDebug)
-                PluginLog.Log("HookManager: Disabling All Functions");
+                Plugin.Log!.Info("HookManager: Disabling All Functions");
             foreach (KeyValuePair<string, HandleStatusDelegate> attrib in functionList)
-                attrib.Value(false);
+                attrib.Value(false, false);
             if (doDebug)
-                PluginLog.Log("HookManager: Disabled All Functions");
+                Plugin.Log!.Info("HookManager: Disabled All Functions");
+        }
+
+        public void DisposeFunctionHandles(bool doDebug = false)
+        {
+            //----
+            // Disable all hooks
+            //----
+            if (doDebug)
+                Plugin.Log!.Info("HookManager: Disposing All Functions");
+            foreach (KeyValuePair<string, HandleStatusDelegate> attrib in functionList)
+                attrib.Value(false, true);
+            if (doDebug)
+                Plugin.Log!.Info("HookManager: Disposed All Functions");
         }
     }
 }

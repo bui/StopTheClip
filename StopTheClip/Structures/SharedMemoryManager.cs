@@ -1,4 +1,4 @@
-﻿using Dalamud.Logging;
+﻿using StopTheClip;
 using System;
 using System.IO.MemoryMappedFiles;
 using System.Threading;
@@ -108,11 +108,11 @@ namespace MemoryManager.Structures
         public bool CheckOpen(SharedMemoryPlugins pluginOffset) => CheckActive(0, (ushort)pluginOffset, (ushort)(0xFF - pluginOffset));
         public bool CheckActive(SharedMemoryPlugins pluginOffset) => CheckActive(16, (ushort)pluginOffset, (ushort)(0xFF - pluginOffset));
 
-        public void OutputStatus()
+        public void OutputStatus(Plugin self)
         {
             foreach (SharedMemoryPlugins plugin in Enum.GetValues(typeof(SharedMemoryPlugins)))
             {
-                PluginLog.Log($"{(ushort)plugin}: {plugin} Open: {CheckOpen(plugin)} Active: {CheckActive(plugin)}");
+                Plugin.Log!.Info($"{(ushort)plugin}: {plugin} Open: {CheckOpen(plugin)} Active: {CheckActive(plugin)}");
             }
         }
     }
