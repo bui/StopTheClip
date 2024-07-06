@@ -1,27 +1,28 @@
-﻿using Dalamud.Game;
+﻿using System;
+using System.Text.RegularExpressions;
+using Dalamud.Game;
 using Dalamud.Game.Command;
-using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Game.ClientState.Conditions;
+using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Hooking;
 using Dalamud.Utility.Signatures;
 using Dalamud.IoC;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
+using FFXIVClientStructs.FFXIV.Client.System.Framework;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
-using System;
-using System.Text.RegularExpressions;
 
 using StopTheClip.Structures;
 using MemoryManager.Structures;
-using FFXIVClientStructs.FFXIV.Client.Graphics.Scene;
+
 
 namespace StopTheClip
 {
     public unsafe class Plugin : IDalamudPlugin
     {
-        [PluginService] public static DalamudPluginInterface? PluginInterface { get; private set; } = null;
+        [PluginService] public static IDalamudPluginInterface? iPluginInterface { get; private set; } = null;
         [PluginService] public static IFramework? iFramework { get; private set; } = null;
         [PluginService] public static ICommandManager? CommandManager { get; private set; } = null;
         [PluginService] public static IClientState? ClientState { get; private set; } = null;
@@ -56,8 +57,9 @@ namespace StopTheClip
             ClientState!.Login += OnLogin;
             ClientState!.Logout += OnLogout;
             iFramework!.Update += Update;
-            PluginInterface!.UiBuilder.Draw += DrawUI;
-            PluginInterface!.UiBuilder.OpenConfigUi += ToggleUI;
+            iPluginInterface!.UiBuilder.Draw += DrawUI;
+            iPluginInterface!.UiBuilder.OpenConfigUi += ToggleUI;
+            iPluginInterface!.UiBuilder.OpenMainUi += ToggleUI;
 
             Initialize();
             Start();
@@ -74,8 +76,9 @@ namespace StopTheClip
             ClientState!.Login -= OnLogin;
             ClientState!.Logout -= OnLogout;
             iFramework!.Update -= Update;
-            PluginInterface!.UiBuilder.Draw -= DrawUI;
-            PluginInterface!.UiBuilder.OpenConfigUi -= ToggleUI;
+            iPluginInterface!.UiBuilder.Draw -= DrawUI;
+            iPluginInterface!.UiBuilder.OpenConfigUi -= ToggleUI;
+            iPluginInterface!.UiBuilder.OpenMainUi -= ToggleUI;
 
             CommandManager!.RemoveHandler(CommandName);
         }
@@ -194,7 +197,7 @@ namespace StopTheClip
         private static class Signatures
         {
             internal const string g_ControlSystemCameraManager = "48 8D 0D ?? ?? ?? ?? F3 0F 10 4B ??";
-            internal const string RunGameTasks = "E8 ?? ?? ?? ?? 48 8B 8B B8 35 00 00";
+            internal const string RunGameTasks = "E8 ?? ?? ?? ?? 48 8B 8B C0 35 00 00";
         }
 
         private void Initialize()
@@ -249,17 +252,20 @@ namespace StopTheClip
             if (dispose)
                 RunGameTasksHook?.Dispose();
             else
+            {
                 if (status)
                     RunGameTasksHook?.Enable();
                 else
                     RunGameTasksHook?.Disable();
+            }
         }
 
         public unsafe void RunGameTasksFn(UInt64 a, float* frameTiming)
         {
             if (isEnabled)
             {
-                for (int i = 0; i < 40; i++)
+                uint taskCount = *(uint*)(a + 0x60);
+                for (int i = 0; i < taskCount; i++)
                 {
                     if (i == 18)
                         CheckVisibility();
@@ -312,7 +318,7 @@ namespace StopTheClip
                 if (mount != null)
                     mount->CullType = ModelCullTypes.Visible;
                 
-                Character.OrnamentContainer* oCont = &character->Ornament;
+                OrnamentContainer* oCont = &character->OrnamentData;
                 if (oCont != null)
                 {
                     GameObject* bonedOrnament = (GameObject*)oCont->OrnamentObject;
@@ -327,7 +333,7 @@ namespace StopTheClip
         }
         private void CheckVisibility()
         {
-            PlayerCharacter? player = ClientState!.LocalPlayer;
+            IPlayerCharacter player = Plugin.ClientState!.LocalPlayer!;
             if (player == null)
                 return;
 
@@ -346,7 +352,7 @@ namespace StopTheClip
             //----
             for (int i = 0; i < PartyList!.Length; i++)
             {
-                Dalamud.Game.ClientState.Objects.Types.GameObject partyMember = PartyList[i]!.GameObject!;
+                Dalamud.Game.ClientState.Objects.Types.IGameObject partyMember = PartyList[i]!.GameObject!;
                 if (partyMember != null)
                 {
                     Character* partyCharacter = (Character*)partyMember.Address;

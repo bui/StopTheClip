@@ -1,7 +1,7 @@
-﻿using FFXIVClientStructs.FFXIV.Client.Graphics.Render;
+﻿using System.Runtime.InteropServices;
+using FFXIVClientStructs.FFXIV.Client.Graphics.Render;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
-using FFXIVClientStructs.Havok;
-using System.Runtime.InteropServices;
+using FFXIVClientStructs.Havok.Common.Base.Math.QsTransform;
 
 namespace StopTheClip.Structures
 {

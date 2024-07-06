@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Numerics;
 using System.Runtime.InteropServices;
-using FFXIVClientStructs.Attributes;
-using FFXIVClientStructs.Interop.Attributes;
 
 namespace StopTheClip.Structures
 {
@@ -78,15 +76,15 @@ namespace StopTheClip.Structures
         [FieldOffset(0x90)] public float EyePosX;
         [FieldOffset(0x94)] public float EyePosY;
         [FieldOffset(0x98)] public float EyePosZ;
-        [FieldOffset(0xA0)] public int OffsetIndex;
-        [FieldOffset(0xA4)] public float FOV;
-        [FieldOffset(0xA8)] public float MkProj1;
-        [FieldOffset(0xAC)] public float Aspect;
-        [FieldOffset(0xB0)] public float NearClip;
-        [FieldOffset(0xB4)] public float FarClip;
-        [FieldOffset(0xC0)] public Matrix4x4 CalculationMatrix;
-        [FieldOffset(0x120)] public CameraThreadedData* ThreadedData;
-        [FieldOffset(0x128)] public UInt64 unk1;
+        [FieldOffset(0xA0)] public Matrix4x4 ViewMatrix1;
+        [FieldOffset(0xE0)] public Matrix4x4 ProjectionMatrix1;
+        [FieldOffset(0x120)] public Matrix4x4 ViewMatrix2;
+        [FieldOffset(0x160)] public Matrix4x4 ProjectionMatrix2;
+        [FieldOffset(0x1A0)] public Matrix4x4 ProjectionText;
+        [FieldOffset(0x1E8)] public float MkProj1;
+        [FieldOffset(0x1EC)] public float Aspect;
+        [FieldOffset(0x1F0)] public float NearClip;
+        [FieldOffset(0x1F4)] public float FarClip;
     }
 
     [StructLayout(LayoutKind.Explicit)]

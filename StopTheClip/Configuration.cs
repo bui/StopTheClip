@@ -13,16 +13,16 @@ namespace StopTheClip
 
         // the below exist just to make saving less cumbersome
         [NonSerialized]
-        private DalamudPluginInterface? PluginInterface;
+        private IDalamudPluginInterface? iPluginInterface;
 
-        public void Initialize(DalamudPluginInterface pluginInterface)
+        public void Initialize(IDalamudPluginInterface pluginInterface)
         {
-            this.PluginInterface = pluginInterface;
+            this.iPluginInterface = pluginInterface;
         }
 
         public void Save()
         {
-            this.PluginInterface!.SavePluginConfig(this);
+            this.iPluginInterface!.SavePluginConfig(this);
         }
     }
 }

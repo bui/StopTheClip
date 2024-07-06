@@ -1,5 +1,4 @@
-﻿using FFXIVClientStructs.Interop.Attributes;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 
 namespace StopTheClip.Structures
 {
