@@ -1,4 +1,4 @@
-﻿using System;
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿using System;
 using System.Text.RegularExpressions;
 using Dalamud.Game;
 using Dalamud.Game.Command;
@@ -31,7 +31,7 @@ namespace StopTheClip
         [PluginService] public static IChatGui? ChatGui { get; private set; } = null;
         [PluginService] public static ICondition? Condition { get; private set; } = null;
         [PluginService] public static IPluginLog? Log { get; private set; } = null;
-        [PluginService] public static IGameInteropProvider Interop { get; private set; } = null;
+        [PluginService] public static IGameInteropProvider? Interop { get; private set; } = null;
 
         public static SharedMemoryManager smm = new SharedMemoryManager();
 
@@ -42,6 +42,7 @@ namespace StopTheClip
         private ControlSystemCameraManager* csCameraManager = null;
         private HookManager hookManager = new HookManager();
 
+        private Configuration configuration;
         private bool isEnabled = false;
         private bool inCutscene = false;
         private bool isXIVRActive = false;
@@ -60,6 +61,9 @@ namespace StopTheClip
             iPluginInterface!.UiBuilder.Draw += DrawUI;
             iPluginInterface!.UiBuilder.OpenConfigUi += ToggleUI;
             iPluginInterface!.UiBuilder.OpenMainUi += ToggleUI;
+
+            configuration = iPluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
+            configuration.Initialize(iPluginInterface);
 
             Initialize();
             Start();
@@ -113,7 +117,7 @@ namespace StopTheClip
         private void DrawUI()
         {
             bool curEnabled = isEnabled;
-            PluginUI.Draw(ref curEnabled);
+            PluginUI.Draw(ref curEnabled, configuration);
             if (curEnabled != isEnabled)
                 Toggle();
         }
@@ -124,7 +128,7 @@ namespace StopTheClip
                 ClipManagerSetNearClip();
 
         }
-        private void OnLogout()
+        private void OnLogout(int type, int code)
         {
             //----
             // Sets the lengths of the TargetSystem to 0 as they keep their size
@@ -170,7 +174,18 @@ namespace StopTheClip
             }
 
             if (isEnabled)
+            {
                 inCutscene = Condition![ConditionFlag.OccupiedInCutSceneEvent] || Condition![ConditionFlag.WatchingCutscene] || Condition![ConditionFlag.WatchingCutscene78];
+                
+                if (csCameraManager != null && csCameraManager->ActiveCameraIndex == 0 && csCameraManager->GameCamera != null)
+                {
+                    float currentClip = csCameraManager->GameCamera->Camera.BufferData->NearClip;
+                    if (currentClip != configuration.NearClipValue)
+                    {
+                        ClipManagerSetNearClip();
+                    }
+                }
+            }
         }
         
 
@@ -180,7 +195,7 @@ namespace StopTheClip
             // Set the near clip
             //----
             if (csCameraManager != null && csCameraManager->ActiveCameraIndex == 0 && csCameraManager->GameCamera != null)
-                csCameraManager->GameCamera->Camera.BufferData->NearClip = 0.05f;
+                csCameraManager->GameCamera->Camera.BufferData->NearClip = configuration.NearClipValue;
         }
 
         private void ClipManagerResetNearClip()
@@ -202,7 +217,7 @@ namespace StopTheClip
 
         private void Initialize()
         {
-            Interop.InitializeFromAttributes(this);
+            Interop?.InitializeFromAttributes(this);
 
             hookManager.SetFunctionHandles(this);
             smm.SetOpen(SharedMemoryPlugins.StopTheClip);

@@ -1,4 +1,4 @@
-﻿using ImGuiNET;
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿using ImGuiNET;
 using System.Diagnostics;
 using System.Numerics;
 
@@ -8,7 +8,7 @@ namespace StopTheClip
     {
         public static bool isVisible = false;
 
-        public static void Draw(ref bool isEnabled)
+        public static void Draw(ref bool isEnabled, Configuration configuration)
         {
             if (!isVisible)
                 return;
@@ -19,17 +19,16 @@ namespace StopTheClip
             
             if (ImGui.Begin("StopTheClipConfiguration", ref isVisible, ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse))
             {
-                ImGui.BeginChild("Outer", new Vector2(180, 110), true);
-
                 ShowKofi();
-
-                ImGui.BeginChild("StopTheClip", new Vector2(160, 40), true);
 
                 ImGui.Checkbox("Enabled", ref isEnabled);
 
-                ImGui.EndChild();
-
-                ImGui.EndChild();
+                float nearClip = configuration.NearClipValue;
+                if (ImGui.SliderFloat("Near Clip", ref nearClip, 0.001f, 0.1f, "%.3f"))
+                {
+                    configuration.NearClipValue = nearClip;
+                    configuration.Save();
+                }
             }
 
         }

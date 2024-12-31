@@ -1,4 +1,4 @@
-﻿using Dalamud.Configuration;
+﻿﻿using Dalamud.Configuration;
 using Dalamud.Plugin;
 using System;
 
@@ -10,6 +10,7 @@ namespace StopTheClip
         public int Version { get; set; } = 0;
 
         public bool SomePropertyToBeSavedAndWithADefault { get; set; } = true;
+        public float NearClipValue { get; set; } = 0.05f;
 
         // the below exist just to make saving less cumbersome
         [NonSerialized]
